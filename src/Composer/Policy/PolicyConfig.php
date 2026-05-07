@@ -54,7 +54,7 @@ class PolicyConfig
         AbandonedPolicyConfig::NAME,
     ];
 
-    public const BUILT_IN_NAMES = [
+    public const BUILTIN_LIST_NAMES = [
         AdvisoriesPolicyConfig::NAME,
         AbandonedPolicyConfig::NAME,
         MalwarePolicyConfig::NAME,
@@ -77,7 +77,7 @@ class PolicyConfig
     /**
      * Keys that are not list names at the top level of the policy config.
      */
-    private const NON_LIST_KEYS = [
+    public const NON_LIST_KEYS = [
         'ignore-unreachable',
     ];
 
@@ -101,6 +101,25 @@ class PolicyConfig
     }
 
     /**
+     * Returns the reason the given name collides with a future-reserved identifier
+     * (FUTURE_RESERVED_PREFIXES or FUTURE_RESERVED_NAMES), or null if it does not.
+     */
+    public static function getFutureReservedListNameError(string $listName): ?string
+    {
+        foreach (self::FUTURE_RESERVED_PREFIXES as $prefix) {
+            if (str_starts_with($listName, $prefix)) {
+                return sprintf('"%s" starts with reserved prefix "%s".', $listName, $prefix);
+            }
+        }
+
+        if (in_array($listName, self::FUTURE_RESERVED_NAMES, true)) {
+            return sprintf('"%s" is reserved for future use.', $listName);
+        }
+
+        return null;
+    }
+
+    /**
      * Reject custom-list names that collide with reserved or future-reserved
      * identifiers (RESERVED_NAMES, FUTURE_RESERVED_NAMES, or any
      * FUTURE_RESERVED_PREFIXES entry).
@@ -111,7 +130,7 @@ class PolicyConfig
      * defence-in-depth for `advisories` and `abandoned` if that loop skip ever
      * changes; `malware` is intentionally absent from RESERVED_NAMES because
      * repositories are allowed to advertise a `malware` list, so it relies
-     * solely on the loop's BUILT_IN_NAMES skip.
+     * solely on the loop's BUILTIN_LIST_NAMES skip.
      */
     private static function assertCustomListNameAllowed(string $listName): void
     {
@@ -122,21 +141,9 @@ class PolicyConfig
             ));
         }
 
-        foreach (self::FUTURE_RESERVED_PREFIXES as $prefix) {
-            if (str_starts_with($listName, $prefix)) {
-                throw new \UnexpectedValueException(sprintf(
-                    'Invalid custom policy list name "%s": names starting with "%s" are reserved for future use.',
-                    $listName,
-                    $prefix
-                ));
-            }
-        }
-
-        if (in_array($listName, self::FUTURE_RESERVED_NAMES, true)) {
-            throw new \UnexpectedValueException(sprintf(
-                'Invalid custom policy list name "%s": this name is reserved for future use.',
-                $listName
-            ));
+        $error = self::getFutureReservedListNameError($listName);
+        if ($error !== null) {
+            throw new \UnexpectedValueException('Invalid custom policy list name: '.$error);
         }
     }
 
@@ -169,7 +176,7 @@ class PolicyConfig
 
         $customLists = [];
         foreach ($policyConfig as $listName => $listConfig) {
-            if (in_array($listName, self::BUILT_IN_NAMES, true) || in_array($listName, self::NON_LIST_KEYS, true)) {
+            if (in_array($listName, self::BUILTIN_LIST_NAMES, true) || in_array($listName, self::NON_LIST_KEYS, true)) {
                 continue;
             }
 
