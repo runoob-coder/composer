@@ -16,6 +16,7 @@ use Composer\Config;
 use Composer\FilterList\FilterListAuditor;
 use Composer\FilterList\FilterListEntry;
 use Composer\Package\CompletePackage;
+use Composer\Policy\ListPolicyConfig;
 use Composer\Policy\PolicyConfig;
 use Composer\Test\TestCase;
 
@@ -73,7 +74,7 @@ class FilterListAuditorTest extends TestCase
         ]]]);
         $policyConfig = PolicyConfig::fromConfig($config);
 
-        $entries = $this->filterListAuditor->getMatchingEntries($package, $filterListMap, $policyConfig, 'block');
+        $entries = $this->filterListAuditor->getMatchingBlockEntries($package, $filterListMap, $policyConfig, ListPolicyConfig::BLOCK_SCOPE_UPDATE);
         $this->assertCount($expectedCount, $entries);
     }
 
@@ -112,7 +113,15 @@ class FilterListAuditorTest extends TestCase
         ]]]);
         $policyConfig = PolicyConfig::fromConfig($config);
 
-        $entries = $this->filterListAuditor->getMatchingEntries($package, $filterListMap, $policyConfig, $operation);
+        switch ($operation) {
+            case 'audit':
+                $entries = $this->filterListAuditor->getMatchingAuditEntries($package, $filterListMap, $policyConfig);
+                break;
+            case 'block':
+                $entries = $this->filterListAuditor->getMatchingBlockEntries($package, $filterListMap, $policyConfig, ListPolicyConfig::BLOCK_SCOPE_UPDATE);
+                break;
+        }
+
         $this->assertCount($expectedCount, $entries);
     }
 
@@ -136,7 +145,7 @@ class FilterListAuditorTest extends TestCase
         ]]]);
         $policyConfig = PolicyConfig::fromConfig($config);
 
-        $entries = $this->filterListAuditor->getMatchingEntries($package, $filterListMap, $policyConfig, 'block');
+        $entries = $this->filterListAuditor->getMatchingBlockEntries($package, $filterListMap, $policyConfig, ListPolicyConfig::BLOCK_SCOPE_UPDATE);
 
         self::assertCount(1, $entries);
         self::assertSame('trusted', $entries[0]->source);
@@ -159,7 +168,7 @@ class FilterListAuditorTest extends TestCase
         ]]]);
         $policyConfig = PolicyConfig::fromConfig($config);
 
-        $entries = $this->filterListAuditor->getMatchingEntries($package, $filterListMap, $policyConfig, 'block');
+        $entries = $this->filterListAuditor->getMatchingBlockEntries($package, $filterListMap, $policyConfig, ListPolicyConfig::BLOCK_SCOPE_UPDATE);
         $this->assertSame([], $entries);
     }
 }

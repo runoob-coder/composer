@@ -266,21 +266,15 @@ class PolicyConfig
     }
 
     /**
-     * @param 'audit'|'block' $operation
+     * Filter lists active for `composer audit` reporting.
+     *
      * @return array<string, ListPolicyConfig>
      */
-    public function getActiveFilterLists(string $operation): array
+    public function getActiveAuditFilterLists(): array
     {
-        $allLists = $this->getAllLists();
-        unset($allLists['abandoned'], $allLists['advisories']);
-
         $lists = [];
-        foreach ($allLists as $name => $list) {
-            if ($operation === 'audit' && $list->audit !== ListPolicyConfig::AUDIT_IGNORE) {
-                $lists[$name] = $list;
-            }
-
-            if ($operation === 'block' && $list->block) {
+        foreach ($this->filterableLists() as $name => $list) {
+            if ($list->audit !== ListPolicyConfig::AUDIT_IGNORE) {
                 $lists[$name] = $list;
             }
         }
@@ -289,12 +283,52 @@ class PolicyConfig
     }
 
     /**
-     * @param 'audit'|'block' $operation
+     * Filter lists active for blocking during the given block scope (update/install).
+     *
+     * @param ListPolicyConfig::BLOCK_SCOPE_* $blockScope
+     * @return array<string, ListPolicyConfig>
+     */
+    public function getActiveBlockFilterLists(string $blockScope): array
+    {
+        $lists = [];
+        foreach ($this->filterableLists() as $name => $list) {
+            if ($list->shouldBlock($blockScope)) {
+                $lists[$name] = $list;
+            }
+        }
+
+        return $lists;
+    }
+
+    /**
      * @return list<string>
      */
-    public function getActiveFilterListNames(string $operation): array
+    public function getActiveAuditFilterListNames(): array
     {
-        return array_keys($this->getActiveFilterLists($operation));
+        return array_keys($this->getActiveAuditFilterLists());
+    }
+
+    /**
+     * @param ListPolicyConfig::BLOCK_SCOPE_* $blockScope
+     * @return list<string>
+     */
+    public function getActiveBlockFilterListNames(string $blockScope): array
+    {
+        return array_keys($this->getActiveBlockFilterLists($blockScope));
+    }
+
+    /**
+     * Lists eligible for filter-list filtering (i.e. all lists except `advisories`
+     * and `abandoned`, which are surfaced via dedicated code paths).
+     *
+     * @return array<string, ListPolicyConfig>
+     */
+    private function filterableLists(): array
+    {
+        $allLists = $this->getAllLists();
+        unset($allLists['abandoned'], $allLists['advisories']);
+
+        return $allLists;
     }
 
     /**

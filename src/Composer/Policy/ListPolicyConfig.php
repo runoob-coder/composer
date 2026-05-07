@@ -44,7 +44,12 @@ abstract class ListPolicyConfig
     /** @var string List name */
     public $name;
 
-    /** @var bool Whether this list blocks matching versions during update/require */
+    /**
+     * Whether this list blocks matching versions during update/require — and during install for
+     * lists that opt into install-time blocking via supportsInstallBlockScope().
+     *
+     * @var bool
+     */
     public $block;
 
     /** @var self::AUDIT_* How composer audit treats matches from this list */
@@ -72,14 +77,30 @@ abstract class ListPolicyConfig
         $this->ignore = $ignore;
     }
 
+    protected function supportsInstallBlockScope(): bool
+    {
+        return false;
+    }
+
     /**
      * Whether blocking applies to a given command context.
+     *
+     * Lists that do not opt into install-time blocking via supportsInstallBlockScope()
+     * are never active for BLOCK_SCOPE_INSTALL — even if `block` is true.
      *
      * @param self::BLOCK_SCOPE_* $blockScope
      */
     public function shouldBlock(string $blockScope): bool
     {
-        return $this->block;
+        if (!$this->block) {
+            return false;
+        }
+
+        if ($blockScope === self::BLOCK_SCOPE_INSTALL && !$this->supportsInstallBlockScope()) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
