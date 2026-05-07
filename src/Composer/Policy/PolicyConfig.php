@@ -192,24 +192,48 @@ class PolicyConfig
             $ignoreUnreachable = IgnoreUnreachable::fromRawAuditConfig($auditConfig);
         }
 
-        // BC: env var overrides (these are handled here because Config::get('policy')
-        // only returns the raw config array; specific overrides need to be applied after parsing)
-        $blockAbandonedEnv = Platform::getEnv('COMPOSER_SECURITY_BLOCKING_ABANDONED');
-        if (false !== $blockAbandonedEnv) {
-            if (!in_array($blockAbandonedEnv, ['0', '1'], true)) {
-                throw new \RuntimeException(
-                    "Invalid value for COMPOSER_SECURITY_BLOCKING_ABANDONED: {$blockAbandonedEnv}. Expected 0 or 1."
-                );
-            }
+        $advisoriesBlockOverride = Platform::getBoolEnv('COMPOSER_POLICY_ADVISORIES_BLOCK');
+        if (null !== $advisoriesBlockOverride) {
+            $advisories = new AdvisoriesPolicyConfig(
+                $advisoriesBlockOverride,
+                $advisories->audit,
+                $advisories->ignore,
+                $advisories->ignoreId,
+                $advisories->ignoreSeverity
+            );
+        }
+
+        $malwareBlockOverride = Platform::getBoolEnv('COMPOSER_POLICY_MALWARE_BLOCK');
+        if (null !== $malwareBlockOverride) {
+            $malware = new MalwarePolicyConfig(
+                $malwareBlockOverride,
+                $malware->audit,
+                $malware->blockScope,
+                $malware->ignore,
+                $malware->ignoreSource
+            );
+        }
+
+        // COMPOSER_POLICY_ABANDONED_BLOCK is the canonical name following the
+        // COMPOSER_POLICY_<LIST>_BLOCK pattern; COMPOSER_SECURITY_BLOCKING_ABANDONED
+        // is the legacy alias and only applies when the canonical var is unset.
+        $abandonedBlockOverride = Platform::getBoolEnv('COMPOSER_POLICY_ABANDONED_BLOCK') ?? Platform::getBoolEnv('COMPOSER_SECURITY_BLOCKING_ABANDONED');
+        if ($abandonedBlockOverride !== null) {
             $abandoned = new AbandonedPolicyConfig(
-                (bool) (int) $blockAbandonedEnv,
+                $abandonedBlockOverride,
                 $abandoned->audit,
                 $abandoned->ignore
             );
         }
 
         $auditAbandonedEnv = Platform::getEnv('COMPOSER_AUDIT_ABANDONED');
-        if (false !== $auditAbandonedEnv && in_array($auditAbandonedEnv, [ListPolicyConfig::AUDIT_IGNORE, ListPolicyConfig::AUDIT_REPORT, ListPolicyConfig::AUDIT_FAIL], true)) {
+        if (false !== $auditAbandonedEnv) {
+            $allowed = [ListPolicyConfig::AUDIT_IGNORE, ListPolicyConfig::AUDIT_REPORT, ListPolicyConfig::AUDIT_FAIL];
+            if (!in_array($auditAbandonedEnv, $allowed, true)) {
+                throw new \RuntimeException(
+                    "Invalid value for COMPOSER_AUDIT_ABANDONED: {$auditAbandonedEnv}. Expected one of ".implode(', ', $allowed)."."
+                );
+            }
             $abandoned = new AbandonedPolicyConfig(
                 $abandoned->block,
                 $auditAbandonedEnv,
